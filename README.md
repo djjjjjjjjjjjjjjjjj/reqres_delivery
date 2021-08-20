@@ -41,7 +41,46 @@
 ```
 
 
+##Auth.java
 
+```java
+package onlinebank;
 
+@Entity
+@Table(name="Auth_table")
+public class Auth {
 
+    @PrePersist
+    public void onPrePersist(){
+
+        String userId = "1@sk.com";
+        String userName = "sam";
+        String userPassword = "1234";
+        boolean authResult = false ;
+
+        if( userId.equals( getUserId() ) && userName.equals( getUserName() ) && userPassword.equals( getUserPassword() ) ){
+            authResult = true ;
+        }
+
+        if( authResult == false ){
+            AuthCancelled authCancelled = new AuthCancelled();
+            BeanUtils.copyProperties(this, authCancelled);
+	    // 실패 이벤트 카프카 송출
+            authCancelled.publish();
+
+        }else{
+            AuthCertified authCertified = new AuthCertified();
+            BeanUtils.copyProperties(this, authCertified);
+
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+                @Override
+                public void beforeCommit(boolean readOnly) {
+		    // 성공 이벤트 카프카 송출
+                    authCertified.publish();
+                }
+            });
+        }
+    }
+
+```
 
